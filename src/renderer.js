@@ -30,6 +30,39 @@ for (const alias of Object.keys(asciiAliases)) {
   }
 }
 
+function emojiUnicode (emoji) {
+  var comp;
+  if (emoji.length === 1) {
+      comp = emoji.charCodeAt(0);
+  }
+  comp = (
+      (emoji.charCodeAt(0) - 0xD800) * 0x400
+    + (emoji.charCodeAt(1) - 0xDC00) + 0x10000
+  );
+  if (comp < 0) {
+      comp = emoji.charCodeAt(0);
+  }
+  return comp.toString("16");
+};
+
+
+function replaceNotFoundEmoji(match, options) {
+  var protocol = (0, _normalizeProtocol2.default)(options.protocol);
+
+  var codepoint = emojiUnicode(match[0]);
+
+  var separator = options.size ? "/" : "";
+  var src = "" + protocol + options.baseUrl + options.size + separator + codepoint + "." + options.ext;
+
+  return _react2.default.createElement("img", _extends({
+    key: codepoint,
+    alt: match[0],
+    src: src,
+    style: style,
+    className: options.className
+  }, options.props)); 
+}
+
 export function toArray(text, options = {}) {
   const protocol = normalizeProtocol(options.protocol);
 
@@ -121,6 +154,11 @@ export default function Emoji({
   }
 
   const output = toArray(text, options);
+
+  if (typeof output[0] === 'string') {
+    output = [replaceNotFoundEmoji(output, options)]
+  }
+
   const classes = classnames(className, {
     [onlyEmojiClassName]: isOnlyEmoji(output),
   });
