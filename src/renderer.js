@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import PropTypes from "prop-types";
 import classnames from "classnames";
 import replace from "string-replace-to-array";
@@ -9,8 +9,8 @@ import aliasRegex from "./aliasRegex";
 import normalizeProtocol from "./normalizeProtocol";
 import unicodeToCodepoint from "./unicodeToCodepoint";
 
-import aliases from "../data/aliases";
-import asciiAliases from "../data/asciiAliases";
+import aliases from "./data/aliases";
+import asciiAliases from "./data/asciiAliases";
 
 const unicodeEmojiRegex = emojiRegex();
 
@@ -63,10 +63,47 @@ function replaceNotFoundEmoji(match, options) {
   }, options.props)); 
 }
 
-export function toArray(text, options = {}) {
+export async function toArray(text, options = {}, onlyEmojiClassName) {
   const protocol = normalizeProtocol(options.protocol);
 
-  function replaceUnicodeEmoji(match, i) {
+  if (options.localSvg) {
+	let codepoint1 = replaceAliases(text);
+	let codepoint2 = unicodeToCodepoint(replaceAliases(text), removeHelperCharacters);
+    // if Emojione we don't want to add helper characters in the URL
+    const removeHelperCharacters = options.emojione;
+    if (removeHelperCharacters) {
+      codepoint2 = codepoint2.replace(/-200d/g, "").replace(/-fe0f/g, "");
+	}
+
+	try {
+		let importedSvg = await import(`./svg/${codepoint2}.${options.ext}`)
+		return (
+			<img
+				key={codepoint1}
+				alt={codepoint1}
+				src={importedSvg.default}
+				style={style}
+				className={options.className}
+				{...options.props}
+			/>
+		);
+	} catch (err) {
+		console.log(err)
+		return (
+			<img
+				key={codepoint1}
+				alt={codepoint1}
+				src={codepoint1}
+				style={style}
+				className={classnames(options.className, onlyEmojiClassName)}
+				{...options.props}
+			/>
+		);
+	}
+
+  }
+
+   async function replaceUnicodeEmoji(match, i) {
     if (!options.baseUrl) {
       return (
         <span key={i} style={style} className={options.className}>
@@ -84,7 +121,7 @@ export function toArray(text, options = {}) {
     }
 
     const separator = options.size ? "/" : "";
-    const src = `${protocol}${options.baseUrl}${options.size}${separator}${codepoint}.${options.ext}`;
+	const src = `${protocol}${options.baseUrl}${options.size}${separator}${codepoint}.${options.ext}`;
 
     return (
       <img
@@ -143,6 +180,7 @@ export default function Emoji({
   className,
   ...rest
 }) {
+  const [stateOutput, setStateOutput] = useState(true)
   function isOnlyEmoji(output) {
     if (output.length > 3) return false;
 
@@ -153,7 +191,24 @@ export default function Emoji({
     return true;
   }
 
-  const output = toArray(text, options);
+  if (options.localSvg) {
+	  useEffect(async () => {
+		  let emojiImg = await toArray(text, options, onlyEmojiClassName)
+		  setStateOutput(emojiImg)
+	  }, [])
+
+	  if (!stateOutput) {
+		  return <div>Loading</div>
+	  }
+
+	  return (
+		  <span {...rest} className={className}>
+			  {stateOutput}
+		  </span>
+	  );
+  }
+
+  let output = toArray(text, options);
 
   if (typeof output[0] === 'string') {
     output = [replaceNotFoundEmoji(output, options)]

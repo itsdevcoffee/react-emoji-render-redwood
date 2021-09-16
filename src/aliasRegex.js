@@ -1,4 +1,4 @@
-import asciiAliases from "../data/asciiAliases";
+import asciiAliases from "./data/asciiAliases";
 import flatten from "lodash.flatten";
 
 import { escapeStringToBeUsedInRegExp } from "./utils";
